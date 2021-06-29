@@ -64,7 +64,7 @@ class BvsbClassifier:
 
     """获取下次需要进行训练的数据，并从迭代集合中删除他们"""
 
-    def getUpdateData(self, predData: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def getUpdateDataWithBvsb(self, predData: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if self._upperLimit <= 0:
             self._iter_continue = False
             return None
@@ -84,7 +84,7 @@ class BvsbClassifier:
             self._iter_continue = False
             return None
         self._upperLimit -= real_index.size
-        if len(real_index)==1:
+        if len(real_index) == 1:
             print("-------------------------------------------------------")
         X_up = self.X_iter[real_index]
         Y_up = self.Y_iter[real_index]
@@ -114,13 +114,13 @@ class BvsbClassifier:
         self.Y_iter = np.delete(self.Y_iter, real_index, axis=0)
         return X_up, Y_up
 
-    def updateTrainData(self, preData: np.ndarray):
-        _data = self.getUpdateData(preData)
+    def updateTrainDataWithBvsb(self, preData: np.ndarray):
+        _data = self.getUpdateDataWithBvsb(preData)
         if _data is None:
             return None
-        return self.updateTrainDataWithoutBvsb(_data)
+        return self.mergeTrainData(_data)
 
-    def updateTrainDataWithoutBvsb(self, _data: Tuple[np.ndarray, np.ndarray]):
+    def mergeTrainData(self, _data: Tuple[np.ndarray, np.ndarray]):
         LOGGER.info(f'增加数据 {_data[1].size}个')
         self.X_train = np.r_[self.X_train, _data[0]]
         self.Y_train = np.r_[self.Y_train, _data[1]]
@@ -191,7 +191,7 @@ class BvsbClassifier:
             predict = self.elmc.predict(self.X_iter)
             score = self.elmc.scoreWithPredict(self.Y_iter, predict)
             LOGGER.info(f'第{i}次迭代后迭代数据集的正确率为{score}')
-            _data = self.getUpdateData(predict)
+            _data = self.getUpdateDataWithBvsb(predict)
             if _data is None:
                 LOGGER.warn("未获取迭代数据，迭代训练结束")
                 break
@@ -235,7 +235,7 @@ class BvsbClassifier:
             i = i + 1
             print(f'---------------第{i}次训练-------------------')
             predict = self.elmc.predict(self.X_iter)
-            _data=self.getUpdataWithoutBVSB(predict)
+            _data = self.getUpdataWithoutBVSB(predict)
             if _data is None:
                 LOGGER.warn("未获取迭代数据，迭代训练结束")
                 break
@@ -250,24 +250,25 @@ class BvsbClassifier:
         while self._iter_continue:
             i = i + 1
             print(f'-------------------------第{i}次训练----------------------------')
-            self.elmc.fit(self.X_train,self.Y_train)
+            self.elmc.fit(self.X_train, self.Y_train)
             predict = self.elmc.predict_with_percentage(self.X_iter)
             _data = self.getUpdataWithoutBVSB(predict)
             if _data is None:
                 LOGGER.warn("未获取迭代数据，迭代结束")
                 break
             LOGGER.info(f'第{i}次训练时添加的数据个数:{_data[1].size}')
-            self.updateTrainDataWithoutBvsb(_data)
-            self.elmc.fit(self.X_train,self.Y_train)
+            self.mergeTrainData(_data)
+            self.elmc.fit(self.X_train, self.Y_train)
             LOGGER.debug(f'第{i}次迭代训练后测试集的分类正确率为{self.score(self.X_test, self.Y_test)}')
+
 
 class BvsbUtils(object):
 
     @staticmethod
     def KNNClassifierResult(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, K=20):
         from sklearn import neighbors
-        if len(y_train)<K:
-            K=len(y_train)-1
+        if len(y_train) < K:
+            K = len(y_train) - 1
         nbr = neighbors.KNeighborsClassifier(K)
         nbr.fit(x_train, y_train)
         return nbr.predict(x_test)
